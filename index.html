@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Simulator</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a31;
+      --panel-2:#182244;
+      --soft:#202d57;
+      --text:#eef3ff;
+      --muted:#a9b7df;
+      --accent:#7c9cff;
+      --accent-2:#6ee7b7;
+      --accent-3:#f59e0b;
+      --danger:#fb7185;
+      --border:rgba(255,255,255,.08);
+      --shadow:0 20px 50px rgba(0,0,0,.35);
+      --radius:18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:
+      radial-gradient(circle at top left, rgba(124,156,255,.15), transparent 28%),
+      radial-gradient(circle at top right, rgba(110,231,183,.12), transparent 25%),
+      linear-gradient(180deg,#08101f,#0b1020 35%, #0d1430 100%);
+      color:var(--text);font-family:var(--sans)}
+    body{min-height:100vh}
+    .app{max-width:1400px;margin:0 auto;padding:28px}
+    .hero{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:24px;
+      margin-bottom:24px;flex-wrap:wrap
+    }
+    .hero h1{
+      margin:0;font-size:clamp(28px,4vw,48px);line-height:1.02;
+      letter-spacing:-.04em
+    }
+    .hero p{margin:10px 0 0;color:var(--muted);max-width:780px;font-size:16px}
+    .pillbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .pill{
+      padding:8px 12px;border:1px solid var(--border);background:rgba(255,255,255,.04);
+      border-radius:999px;color:var(--muted);font-size:13px
+    }
+
+    .grid{
+      display:grid;grid-template-columns:1.1fr .9fr;gap:20px;
+    }
+    @media (max-width:1100px){.grid{grid-template-columns:1fr}}
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);border-radius:var(--radius);overflow:hidden
+    }
+    .card-header{
+      padding:18px 20px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;gap:16px
+    }
+    .card-title{font-weight:700;font-size:18px;letter-spacing:-.02em}
+    .card-sub{color:var(--muted);font-size:13px}
+    .card-body{padding:20px}
+
+    .controls{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:700px){.controls{grid-template-columns:1fr}}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+    textarea,input[type="text"],select{
+      width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);
+      border-radius:14px;padding:14px 14px;font:inherit;outline:none
+    }
+    textarea{min-height:260px;resize:vertical;line-height:1.45}
+    input[type="range"]{width:100%}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .row-between{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{
+      border:none;color:white;background:linear-gradient(135deg,var(--accent),#5b7cff);
+      padding:12px 16px;border-radius:14px;font-weight:700;cursor:pointer;
+      box-shadow:0 10px 25px rgba(124,156,255,.25);transition:.2s transform,.2s opacity
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.secondary{
+      background:linear-gradient(135deg,#1f2b52,#23336a);box-shadow:none;border:1px solid var(--border)
+    }
+    .btn.green{
+      background:linear-gradient(135deg,#10b981,#34d399);box-shadow:0 10px 25px rgba(16,185,129,.2)
+    }
+    .btn.orange{
+      background:linear-gradient(135deg,#f59e0b,#fbbf24);box-shadow:0 10px 25px rgba(245,158,11,.2)
+    }
+    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    @media (max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}}
+    .stat{
+      background:var(--panel);border:1px solid var(--border);padding:14px;border-radius:16px
+    }
+    .stat .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .stat .v{font-weight:800;font-size:24px}
+
+    .steps{display:grid;gap:12px}
+    .step{
+      border:1px solid var(--border);background:rgba(255,255,255,.025);border-radius:16px;padding:14px
+    }
+    .step.active{outline:2px solid rgba(124,156,255,.55);background:rgba(124,156,255,.08)}
+    .step.done{border-color:rgba(110,231,183,.35)}
+    .step-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .step-title{font-weight:700}
+    .badge{
+      font-size:11px;padding:4px 8px;border-radius:999px;background:var(--soft);color:var(--muted)
+    }
+    .badge.green{background:rgba(16,185,129,.16);color:#8af0c6}
+    .badge.orange{background:rgba(245,158,11,.16);color:#ffd485}
+    .step p{margin:8px 0 0;color:var(--muted);font-size:14px}
+
+    .panel{
+      border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:14px
+    }
+    .panel h3{margin:0 0 8px;font-size:15px}
+    .muted{color:var(--muted)}
+    .mono{font-family:var(--mono)}
+    .small{font-size:13px}
+    .tiny{font-size:12px}
+    .chip{
+      display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
+      background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);font-size:12px
+    }
+
+    .chunks, .results, .llm-box{display:grid;gap:10px;max-height:420px;overflow:auto;padding-right:4px}
+    .chunk, .result-item{
+      background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:14px;padding:12px
+    }
+    .chunk:hover,.result-item:hover{background:rgba(255,255,255,.05)}
+    .chunk-head,.result-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
+    .chunk-id,.result-id{font-weight:700;font-size:13px}
+    .score{font-family:var(--mono);font-size:12px;color:#9bd0ff}
+    .source{font-size:12px;color:var(--muted)}
+    .excerpt{font-size:14px;line-height:1.45;color:var(--text)}
+    .hl{background:linear-gradient(180deg, rgba(245,158,11,.1), rgba(245,158,11,.25));padding:1px 4px;border-radius:6px}
+    .answer{
+      white-space:pre-wrap;line-height:1.6;font-size:15px
+    }
+
+    .footer-note{
+      margin-top:18px;color:var(--muted);font-size:13px
+    }
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:700px){.two-col{grid-template-columns:1fr}}
+    .list{margin:8px 0 0;padding-left:18px;color:var(--muted)}
+    .list li{margin:6px 0}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <div>
+        <h1>RAG Simulator</h1>
+        <p>
+          A modern, visual simulator to help you understand the full Retrieval-Augmented Generation flow:
+          ingestion → chunking → embeddings → vector search → top-N retrieval → context injection → LLM answer.
+        </p>
+        <div class="pillbar">
+          <div class="pill">HTML only</div>
+          <div class="pill">No backend</div>
+          <div class="pill">Semantic-ish search</div>
+          <div class="pill">Interactive steps</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <!-- Left -->
+      <div style="display:grid; gap:20px;">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">1) Knowledge Setup</div>
+              <div class="card-sub">Add files / docs / PDFs as plain text blocks. One block = one source.</div>
+            </div>
+            <div class="row">
+              <button class="btn secondary" id="loadSampleBtn">Load Sample Corpus</button>
+              <button class="btn secondary" id="clearBtn">Clear</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <label for="docsInput">Corpus input (use <span class="mono">### Source: Name</span> to separate documents)</label>
+            <textarea id="docsInput" spellcheck="false"></textarea>
+
+            <div class="controls" style="margin-top:16px;">
+              <div class="panel">
+                <label>Chunk size (words): <span id="chunkSizeLabel" class="mono">70</span></label>
+                <input id="chunkSize" type="range" min="35" max="140" step="5" value="70" />
+              </div>
+              <div class="panel">
+                <label>Chunk overlap (words): <span id="overlapLabel" class="mono">12</span></label>
+                <input id="chunkOverlap" type="range" min="0" max="40" step="2" value="12" />
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:16px;">
+              <button class="btn" id="ingestBtn">Ingest & Chunk</button>
+              <button class="btn green" id="embedBtn" disabled>Create Embeddings</button>
+            </div>
+
+            <div class="footer-note">
+              This demo uses a lightweight client-side “embedding” approximation so you can understand the flow visually without any API.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">2) Chunk Store</div>
+              <div class="card-sub">See how your corpus gets broken into chunks before embedding.</div>
+            </div>
+            <div class="row">
+              <div class="chip">Total chunks: <span id="chunkCount" class="mono">0</span></div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chunks" id="chunksList"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">3) Ask a Question</div>
+              <div class="card-sub">This simulates query embedding → semantic retrieval → context injection → answer.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="two-col">
+              <div>
+                <label for="queryInput">User prompt</label>
+                <input id="queryInput" type="text" placeholder="e.g. What are the biggest benefits of RAG?" />
+              </div>
+              <div>
+                <label for="topK">Top N chunks to retrieve</label>
+                <select id="topK">
+                  <option>2</option>
+                  <option selected>3</option>
+                  <option>4</option>
+                  <option>5</option>
+                  <option>6</option>
+                </select>
+              </div>
+            </div>
+            <div class="row" style="margin-top:16px;">
+              <button class="btn orange" id="runBtn" disabled>Run RAG</button>
+            </div>
+
+            <div class="stats" style="margin-top:18px;">
+              <div class="stat">
+                <div class="k">Documents</div>
+                <div class="v" id="docStat">0</div>
+              </div>
+              <div class="stat">
+                <div class="k">Chunks</div>
+                <div class="v" id="chunkStat">0</div>
+              </div>
+              <div class="stat">
+                <div class="k">Retrieved</div>
+                <div class="v" id="retrievedStat">0</div>
+              </div>
+              <div class="stat">
+                <div class="k">Embedding dims</div>
+                <div class="v" id="dimStat">48</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right -->
+      <div style="display:grid; gap:20px;">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">RAG Steps</div>
+              <div class="card-sub">Matches your current understanding, with a little more production realism.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="steps" id="steps">
+              <div class="step" data-step="1">
+                <div class="step-head">
+                  <div class="step-title">1. Knowledge setup</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>Add source documents such as PDFs, notes, docs, or pasted text.</p>
+              </div>
+              <div class="step" data-step="2">
+                <div class="step-head">
+                  <div class="step-title">2. Chunking</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>Split long documents into smaller chunks so they can be embedded and retrieved efficiently.</p>
+              </div>
+              <div class="step" data-step="3">
+                <div class="step-head">
+                  <div class="step-title">3. Embeddings + vector store</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>Turn chunks into vectors and store them for semantic similarity search.</p>
+              </div>
+              <div class="step" data-step="4">
+                <div class="step-head">
+                  <div class="step-title">4. Query embedding</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>Convert the user question into the same vector space.</p>
+              </div>
+              <div class="step" data-step="5">
+                <div class="step-head">
+                  <div class="step-title">5. Top-N retrieval</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>Find the most semantically relevant chunks using cosine similarity.</p>
+              </div>
+              <div class="step" data-step="6">
+                <div class="step-head">
+                  <div class="step-title">6. Context injection</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>Add the retrieved chunks into the LLM prompt as supporting context.</p>
+              </div>
+              <div class="step" data-step="7">
+                <div class="step-head">
+                  <div class="step-title">7. LLM answer</div>
+                  <div class="badge">waiting</div>
+                </div>
+                <p>The model answers using retrieved context instead of only parametric memory.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Retrieved Chunks</div>
+              <div class="card-sub">These are the chunks that would be sent to the LLM.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="results" id="results"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">LLM Prompt (Simulated)</div>
+              <div class="card-sub">Shows the final prompt after context injection.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="panel mono small" id="promptPreview" style="min-height:180px; white-space:pre-wrap;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Final Answer (Simulated)</div>
+              <div class="card-sub">A mock answer generated from retrieved context.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="panel">
+              <div class="answer" id="answerBox">Run a query to see the final answer.</div>
+            </div>
+            <div class="panel" style="margin-top:12px;">
+              <h3>What this simulator is teaching</h3>
+              <ul class="list">
+                <li>Why chunking matters</li>
+                <li>How embeddings enable semantic search</li>
+                <li>Why Top-N chunks are passed to the LLM</li>
+                <li>How context helps reduce hallucination</li>
+                <li>Why retrieval quality decides answer quality</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sampleCorpus = `### Source: RAG Basics
+Retrieval-Augmented Generation, or RAG, is a system design pattern where an application retrieves relevant information from an external knowledge base before sending context to a language model. Instead of relying only on the model's training memory, RAG grounds the answer in fresh or private data. This makes it useful for PDFs, policies, books, support docs, and internal notes. A common RAG pipeline starts with knowledge ingestion, then chunking, embeddings, storing vectors, embedding the user query, retrieving top matching chunks, adding them to the prompt, and finally generating an answer.
+
+### Source: Chunking and Embeddings
+Chunking means splitting large documents into smaller units so retrieval can be more precise. If chunks are too large, retrieval may include irrelevant details. If chunks are too small, meaning may get lost. Many systems use overlapping chunks to preserve context across boundaries. After chunking, each chunk is converted into an embedding — a numeric representation that captures semantic meaning. These vectors are stored in a vector database. Similar meanings end up close to each other in vector space, which is why semantic search works even when exact words differ.
+
+### Source: Query Retrieval
+When a user asks a question, the query is also converted into an embedding. The system compares this query vector against chunk vectors and retrieves the top K most similar chunks. Similarity is often measured using cosine similarity. Some production systems also apply metadata filters, keyword search, or reranking after initial retrieval. The goal is to supply the language model with the most useful context and avoid polluting the prompt with irrelevant text.
+
+### Source: Why RAG Matters
+RAG is important because LLMs can hallucinate, forget recent information, or lack access to private enterprise data. By augmenting the model with retrieved context, you can improve factuality, freshness, and source grounding. RAG does not magically solve everything though. If retrieval is weak, the answer will still be weak. A bad chunking strategy, poor embeddings, or noisy context can degrade output. In practice, many strong RAG systems combine vector search, metadata filtering, reranking, and strong prompt instructions like: answer only from context and say not found if missing.
+
+### Source: Books and Note Applications
+In book summarizers and note assistants, RAG can help users ask questions about uploaded content. For example, a system can ingest a book PDF, chunk chapters, create embeddings, and let the user ask questions like: what are the main ideas from chapter three, or give me examples of deliberate practice from the book. The best systems show source snippets and citations so users can trust the answer. They may also support different outputs such as quick summaries, slide-style summaries, or podcast-style scripts, but often these should be generated on demand to save compute.
+`;
+
+    const docsInput = document.getElementById('docsInput');
+    const chunkSizeInput = document.getElementById('chunkSize');
+    const overlapInput = document.getElementById('chunkOverlap');
+    const chunkSizeLabel = document.getElementById('chunkSizeLabel');
+    const overlapLabel = document.getElementById('overlapLabel');
+    const ingestBtn = document.getElementById('ingestBtn');
+    const embedBtn = document.getElementById('embedBtn');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const loadSampleBtn = document.getElementById('loadSampleBtn');
+    const chunksList = document.getElementById('chunksList');
+    const results = document.getElementById('results');
+    const promptPreview = document.getElementById('promptPreview');
+    const answerBox = document.getElementById('answerBox');
+    const queryInput = document.getElementById('queryInput');
+    const topKInput = document.getElementById('topK');
+
+    const chunkCount = document.getElementById('chunkCount');
+    const docStat = document.getElementById('docStat');
+    const chunkStat = document.getElementById('chunkStat');
+    const retrievedStat = document.getElementById('retrievedStat');
+
+    const DIM = 48;
+
+    let sources = [];
+    let chunks = [];
+    let embeddedChunks = [];
+    let retrieved = [];
+
+    function updateSliderLabels() {
+      chunkSizeLabel.textContent = chunkSizeInput.value;
+      overlapLabel.textContent = overlapInput.value;
+    }
+
+    function setStep(step, status) {
+      const el = document.querySelector(`.step[data-step="${step}"]`);
+      if (!el) return;
+      el.classList.remove('active', 'done');
+      const badge = el.querySelector('.badge');
+
+      if (status === 'active') {
+        el.classList.add('active');
+        badge.textContent = 'active';
+        badge.className = 'badge orange';
+      } else if (status === 'done') {
+        el.classList.add('done');
+        badge.textContent = 'done';
+        badge.className = 'badge green';
+      } else {
+        badge.textContent = 'waiting';
+        badge.className = 'badge';
+      }
+    }
+
+    function resetSteps() {
+      for (let i = 1; i <= 7; i++) setStep(i, 'waiting');
+      if (docsInput.value.trim()) setStep(1, 'done');
+    }
+
+    function parseSources(raw) {
+      const parts = raw.split(/###\s*Source:\s*/g).map(s => s.trim()).filter(Boolean);
+      return parts.map((block, idx) => {
+        const firstLineEnd = block.indexOf('\n');
+        if (firstLineEnd === -1) {
+          return { name: `Source ${idx+1}`, text: block.trim() };
+        }
+        const name = block.slice(0, firstLineEnd).trim();
+        const text = block.slice(firstLineEnd + 1).trim();
+        return { name: name || `Source ${idx+1}`, text };
+      }).filter(s => s.text);
+    }
+
+    function words(text) {
+      return text.split(/\s+/).filter(Boolean);
+    }
+
+    function chunkText(text, size=70, overlap=12) {
+      const w = words(text);
+      const out = [];
+      let i = 0;
+      while (i < w.length) {
+        const slice = w.slice(i, i + size).join(' ');
+        out.push(slice);
+        if (i + size >= w.length) break;
+        i += Math.max(1, size - overlap);
+      }
+      return out;
+    }
+
+    function tokenize(text) {
+      return (text.toLowerCase().match(/[a-z0-9]+/g) || [])
+        .filter(t => t.length > 1)
+        .map(stem);
+    }
+
+    function stem(token) {
+      return token
+        .replace(/(ing|edly|edly|ed|ly|ies|s)$/,'')
+        .replace(/tion$/,'te')
+        .replace(/ment$/,'');
+    }
+
+    function hashToken(token) {
+      let h = 2166136261;
+      for (let i=0;i<token.length;i++) {
+        h ^= token.charCodeAt(i);
+        h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);
+      }
+      return Math.abs(h) % DIM;
+    }
+
+    function embedText(text) {
+      const vec = Array(DIM).fill(0);
+      const toks = tokenize(text);
+      for (const tok of toks) {
+        const idx = hashToken(tok);
+        vec[idx] += 1;
+      }
+      // normalize
+      const norm = Math.sqrt(vec.reduce((a,b)=>a+b*b,0)) || 1;
+      return vec.map(v => v / norm);
+    }
+
+    function cosine(a,b) {
+      let s = 0;
+      for (let i=0;i<a.length;i++) s += a[i]*b[i];
+      return s;
+    }
+
+    function renderChunks() {
+      chunksList.innerHTML = '';
+      chunkCount.textContent = chunks.length;
+      chunkStat.textContent = chunks.length;
+      docStat.textContent = sources.length;
+
+      if (!chunks.length) {
+        chunksList.innerHTML = `<div class="muted small">No chunks yet. Ingest your corpus first.</div>`;
+        return;
+      }
+
+      chunks.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'chunk';
+        div.innerHTML = `
+          <div class="chunk-head">
+            <div>
+              <div class="chunk-id">${ch.id}</div>
+              <div class="source">${ch.source}</div>
+            </div>
+            <div class="chip mono">~${ch.wordCount} words</div>
+          </div>
+          <div class="excerpt">${escapeHtml(ch.text.slice(0, 240))}${ch.text.length > 240 ? '…' : ''}</div>
+        `;
+        chunksList.appendChild(div);
+      });
+    }
+
+    function renderResults() {
+      results.innerHTML = '';
+      retrievedStat.textContent = retrieved.length;
+      if (!retrieved.length) {
+        results.innerHTML = `<div class="muted small">Run a query to retrieve top chunks.</div>`;
+        return;
+      }
+
+      retrieved.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <div class="result-head">
+            <div>
+              <div class="result-id">Top ${idx+1}: ${item.chunk.id}</div>
+              <div class="source">${item.chunk.source}</div>
+            </div>
+            <div class="score">cosine: ${item.score.toFixed(3)}</div>
+          </div>
+          <div class="excerpt">${highlightQueryTerms(item.chunk.text, queryInput.value)}</div>
+        `;
+        results.appendChild(div);
+      });
+    }
+
+    function generateAnswer(query, retrievedItems) {
+      if (!retrievedItems.length) return 'No relevant chunks found.';
+      const qTokens = new Set(tokenize(query));
+      const sentences = retrievedItems
+        .flatMap(r => splitSentences(r.chunk.text).map(s => ({ sentence:s, source:r.chunk.source })));
+
+      const scored = sentences.map(s => {
+        const st = tokenize(s.sentence);
+        let overlap = 0;
+        for (const t of st) if (qTokens.has(t)) overlap++;
+        return { ...s, overlap };
+      }).sort((a,b)=>b.overlap-a.overlap);
+
+      const topSentences = scored.filter(s => s.overlap > 0).slice(0, 5);
+      const usable = topSentences.length ? topSentences : scored.slice(0, 4);
+
+      let answer = `Based on the retrieved context, here’s the answer:\n\n`;
+      usable.forEach((u, i) => {
+        answer += `${i+1}. ${u.sentence.trim()} `;
+        answer += `\n   Source: ${u.source}\n\n`;
+      });
+
+      answer += `Summary:\n`;
+      answer += synthesizeSummary(query, retrievedItems);
+      return answer.trim();
+    }
+
+    function synthesizeSummary(query, items) {
+      const allText = items.map(i => i.chunk.text).join(' ');
+      const q = query.toLowerCase();
+
+      if (q.includes('rag')) {
+        return `RAG retrieves relevant external context before the LLM answers. The usual flow is: ingest knowledge, chunk it, create embeddings, store vectors, embed the user query, retrieve top matching chunks, inject that context into the prompt, and then generate the final answer.`;
+      }
+      if (q.includes('chunk')) {
+        return `Chunking improves retrieval precision. If chunks are too large, they include noise. If they are too small, they may lose meaning. Overlap helps preserve continuity across chunk boundaries.`;
+      }
+      if (q.includes('embed')) {
+        return `Embeddings convert text into vectors that capture semantic meaning. Those vectors make it possible to retrieve similar concepts even when wording differs.`;
+      }
+      return `The answer was generated by retrieving semantically similar chunks from the corpus and using them as context. In real RAG systems, better retrieval usually leads to better answers.`;
+    }
+
+    function splitSentences(text) {
+      return text
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function highlightQueryTerms(text, query) {
+      const terms = [...new Set(tokenize(query))].filter(t => t.length > 2);
+      let html = escapeHtml(text);
+      for (const term of terms) {
+        const re = new RegExp(`(${escapeRegExp(term)})`, 'ig');
+        html = html.replace(re, '<span class="hl">$1</span>');
+      }
+      return html;
+    }
+
+    function buildPrompt(query, retrievedItems) {
+      const context = retrievedItems.map((r, i) =>
+        `[Chunk ${i+1} | ${r.chunk.source} | score=${r.score.toFixed(3)}]\n${r.chunk.text}`
+      ).join('\n\n');
+
+      return `SYSTEM:
+You are a grounded assistant. Answer only using the retrieved context. If not found, say "Not found in retrieved context."
+
+USER QUESTION:
+${query}
+
+RETRIEVED CONTEXT:
+${context}
+
+FINAL TASK:
+Answer the user's question using the context above.`;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function ingest() {
+      const raw = docsInput.value.trim();
+      if (!raw) return;
+      resetSteps();
+      setStep(1, 'done');
+      setStep(2, 'active');
+
+      sources = parseSources(raw);
+      chunks = [];
+      embeddedChunks = [];
+      retrieved = [];
+      results.innerHTML = '';
+      promptPreview.textContent = '';
+      answerBox.textContent = 'Run a query to see the final answer.';
+
+      const size = +chunkSizeInput.value;
+      const overlap = +overlapInput.value;
+
+      sources.forEach((src, i) => {
+        const srcChunks = chunkText(src.text, size, overlap);
+        srcChunks.forEach((text, j) => {
+          chunks.push({
+            id: `C${i+1}.${j+1}`,
+            source: src.name,
+            text,
+            wordCount: words(text).length
+          });
+        });
+      });
+
+      renderChunks();
+      setStep(2, 'done');
+      embedBtn.disabled = !chunks.length;
+      runBtn.disabled = true;
+      retrievedStat.textContent = '0';
+    }
+
+    function createEmbeddings() {
+      if (!chunks.length) return;
+      setStep(3, 'active');
+      embeddedChunks = chunks.map(ch => ({
+        ...ch,
+        embedding: embedText(ch.text)
+      }));
+      setStep(3, 'done');
+      runBtn.disabled = false;
+    }
+
+    function runRAG() {
+      const query = queryInput.value.trim();
+      if (!query || !embeddedChunks.length) return;
+
+      resetSteps();
+      setStep(1, 'done');
+      setStep(2, 'done');
+      setStep(3, 'done');
+      setStep(4, 'active');
+
+      const qVec = embedText(query);
+
+      setStep(4, 'done');
+      setStep(5, 'active');
+
+      const topK = +topKInput.value;
+      retrieved = embeddedChunks
+        .map(ch => ({ chunk: ch, score: cosine(qVec, ch.embedding) }))
+        .sort((a,b) => b.score - a.score)
+        .slice(0, topK);
+
+      renderResults();
+      setStep(5, 'done');
+      setStep(6, 'active');
+
+      const prompt = buildPrompt(query, retrieved);
+      promptPreview.textContent = prompt;
+
+      setStep(6, 'done');
+      setStep(7, 'active');
+
+      const answer = generateAnswer(query, retrieved);
+      answerBox.textContent = answer;
+
+      setStep(7, 'done');
+    }
+
+    loadSampleBtn.addEventListener('click', () => {
+      docsInput.value = sampleCorpus;
+      resetSteps();
+      setStep(1, 'done');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      docsInput.value = '';
+      queryInput.value = '';
+      sources = [];
+      chunks = [];
+      embeddedChunks = [];
+      retrieved = [];
+      renderChunks();
+      renderResults();
+      promptPreview.textContent = '';
+      answerBox.textContent = 'Run a query to see the final answer.';
+      embedBtn.disabled = true;
+      runBtn.disabled = true;
+      docStat.textContent = '0';
+      chunkStat.textContent = '0';
+      retrievedStat.textContent = '0';
+      resetSteps();
+    });
+
+    ingestBtn.addEventListener('click', ingest);
+    embedBtn.addEventListener('click', createEmbeddings);
+    runBtn.addEventListener('click', runRAG);
+    chunkSizeInput.addEventListener('input', updateSliderLabels);
+    overlapInput.addEventListener('input', updateSliderLabels);
+
+    updateSliderLabels();
+    docsInput.value = sampleCorpus;
+    setStep(1, 'done');
+    renderChunks();
+    renderResults();
+  </script>
+</body>
+</html>
